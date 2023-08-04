@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>record_tool</name>
+  <version>0.0.0</version>
+  <description>The record_tool package</description>
+
+  <maintainer email="dgist@todo.todo">dgist</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>std_msgs</depend>
+  
+  <build_depend>dbw_mkz_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+  
+  <build_export_depend>dbw_mkz_msgs</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  
+  <exec_depend>dbw_mkz_msgs</exec_depend>  
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+
+  </export>
+</package>

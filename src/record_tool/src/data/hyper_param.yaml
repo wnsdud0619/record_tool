@@ -1,0 +1,2 @@
+topics: /sensing/camera/traffic_light/image_raw /points_raw /gps/fix /diagnostics
+buffer_size: 20
