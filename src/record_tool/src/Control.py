@@ -1,5 +1,4 @@
-#-*- encoding: utf-8 -*-
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 
 import yaml
 import io
@@ -16,15 +15,15 @@ import subprocess
 import signal
 from record_tool.srv import *
 
-# emergency, override check   
-class CustomSignal_ros_mkzbtn(QObject):                
+# steering btn check   
+class CustomSignal_ros_steeringbtn(QObject):                
     signal = pyqtSignal(str)
 
     def run(self):
         signal__str = ""        
         self.signal.emit(signal__str)
 
-# steering btn check
+# emergency, override check
 class CustomSignal_ros_event(QObject):                
     signal = pyqtSignal(str)
 
@@ -45,7 +44,7 @@ class space_checker(QThread):
             free = st_home.f_bavail * st_home.f_frsize
             free_space = (free/1024/1024/1024) - 15
             
-            text = str(free_space)
+            text = str(round(free_space, 3))
             self.space_checker.emit(text)
             time.sleep(1)
 
@@ -60,16 +59,19 @@ class Thread_make_rosbag(QThread):
         self.cmd = None
         self.root_path = sys.argv[1]
 
-        topic_path = self.root_path + '/data/hyper_param.yaml' 
+        #topic_path = self.root_path + '/data/hyper_param.yaml' 
+        topic_path = './data/hyper_param.yaml' 
         with io.open(topic_path,'r', encoding="UTF-8") as f:
             self.topic_yaml = yaml.load(f, Loader=yaml.FullLoader) 
 
     def run_split(self):  #무조건 run이라는 함수만 실행하게 되어 있음
-        buffer_full_path = self.root_path + '/buffer'
+        #buffer_full_path = self.root_path + '/buffer'
+        buffer_full_path = './buffer'
         if not os.path.exists(buffer_full_path):
             os.makedirs(buffer_full_path)
     
-        event_full_path = self.root_path + '/event'
+        #event_full_path = self.root_path + '/event'
+        event_full_path = './event'
         if not os.path.exists(event_full_path):
             os.makedirs(event_full_path) 
 
@@ -80,7 +82,8 @@ class Thread_make_rosbag(QThread):
         return bag_name, event_full_path
 
     def run_manual(self):  #무조건 run이라는 함수만 실행하게 되어 있음
-        manual_full_path = self.root_path + '/manual'
+        #manual_full_path = self.root_path + '/manual'
+        manual_full_path = './manual'
         if not os.path.exists(manual_full_path):
             os.makedirs(manual_full_path)
 
@@ -103,15 +106,15 @@ class Thread_make_rosbag(QThread):
         self.wait(1000)
 
 class MVC_Control:
-    def __init__(self, model, view):
+    def __init__(self, _model, _view):
         self.buffer_size = 0
         self.is_situation_confirm = False
         self.save_path = None
         self.manual_btn_delay = None
         self.t_event = None
-        self.root_path = sys.argv[1]  
-        self.model = model
-        self.view = view
+        self.root_path = sys.argv[1]
+        self.model = _model
+        self.view = _view
         self.view.set_control(self)
         self.dic_meta = {"passengers":self.model.passengers, "purpose":self.model.purpose, "area":self.model.area, "weather":self.model.weather, "situation":self.model.situation}
         self.load_meta_data()
@@ -121,8 +124,8 @@ class MVC_Control:
         #ros signal생성
         self.ros_event_signal = CustomSignal_ros_event()
         self.ros_event_signal.signal.connect(self.set_record_type_event)
-        self.mkz_right_btn_signal = CustomSignal_ros_mkzbtn()
-        self.mkz_right_btn_signal.signal.connect(self.set_record_type_manual)
+        self.steering_btn_signal = CustomSignal_ros_steeringbtn()
+        self.steering_btn_signal.signal.connect(self.set_record_type_manual)
 
         #쓰레드 생성
         self.Thread_make_rosbag = Thread_make_rosbag()
@@ -132,9 +135,12 @@ class MVC_Control:
         self.Thread_space.start()
         self.model.ros_data['bag_name'], self.save_path = self.Thread_make_rosbag.run_split()
 
+        # UI init update
+        self.view.update_label_record_state('Record type: ' + self.model.record_state)
+
     def ros_listener(self):
         rospy.init_node('ros_event', anonymous=True)
-        rospy.Subscriber('/vehicle/misc_1_report', Misc1Report, self.ros_callback_MKZ_btn, queue_size=1)
+        rospy.Subscriber('/vehicle/misc_1_report', Misc1Report, self.ros_callback_steering_btn, queue_size=1)
         rospy.Service('add_two_ints', Record, self.return_bag_name)
   
     def return_bag_name(self, req): #req emergency override
@@ -151,40 +157,43 @@ class MVC_Control:
         return RecordResponse(self.save_path ,self.model.ros_data['bag_name'], is_running)
 
     def buffer_clear(self):
-        cmd_str = 'rm -f ' + self.root_path + '/buffer/*'
+        #cmd_str = 'rm -f ' + self.root_path + '/buffer/*'
+        cmd_str = 'rm -f ' + './buffer/*'
         cmd = subprocess.Popen(cmd_str, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         cmd.wait()
         rospy.loginfo("clear buffer")
 
-    def ros_callback_MKZ_btn(self, data):
+    def ros_callback_steering_btn(self, _data):
         if self.manual_btn_delay != None:
             if self.manual_btn_delay.is_alive():
                 print("manual btn thread is alived")
                 return            
                 
-        if data.btn_ld_right:
+        if _data.btn_ld_right:
             self.manual_btn_delay = Timer(2, self.manual_delay, args=()) 
             self.manual_btn_delay.start() 
-            rospy.loginfo("MKZ right btn sub")
-            self.mkz_right_btn_signal.run()
+            rospy.loginfo("steering btn sub")
+            self.steering_btn_signal.run()
             if self.model.record_state == "STATE_NONE":
-                now = data.header.stamp
+                now = _data.header.stamp
                 self.model.ros_data["sec"] = now.secs
                 self.model.ros_data["nsec"] = now.nsecs
                 #rospy.loginfo("sec: %d, nec: %d",self.model.ros_data["sec"], self.model.ros_data["nsec"])
 
-    def load_yaml(self, meta_yaml_path):
+    def load_yaml(self, _meta_yaml_path):
     # AttributeError: module 'yaml' has no attribute 'FullLoader'  -> $ pip install -U PyYAML  
     # Py yaml > = 5.1
-        with io.open(meta_yaml_path,'r', encoding="UTF-8") as f:
+        with io.open(_meta_yaml_path,'r', encoding="UTF-8") as f:
             meta_yaml = yaml.load(f, Loader=yaml.FullLoader)
 
         for key, value in self.dic_meta.items():
             self.dic_meta[key] = meta_yaml[key]                     
 
     def load_meta_data(self):
-        meta_yaml_path = self.root_path + '/data/meta_data.yaml'
-        hyper_yaml_path = self.root_path + '/data/hyper_param.yaml'
+        #meta_yaml_path = self.root_path + '/data/meta_data.yaml'
+        #hyper_yaml_path = self.root_path + '/data/hyper_param.yaml'
+        meta_yaml_path = './data/meta_data.yaml'
+        hyper_yaml_path = './data/hyper_param.yaml'
 
         if os.path.isfile(hyper_yaml_path):
             with io.open(hyper_yaml_path,'r', encoding="UTF-8") as f:
@@ -236,18 +245,23 @@ class MVC_Control:
         bag_name = self.write_yaml(self.model.record_type)     
         
         if self.save_path == None:
-            mv_dir = self.root_path + '/event/' + bag_name
+            #mv_dir = self.root_path + '/event/' + bag_name
+            mv_dir = './event/' + bag_name
         else:
-            mv_dir = self.root_path + '/' + self.save_path
+            #mv_dir = self.root_path + '/' + self.save_path
+            mv_dir = './' + self.save_path
 
         #이동할 dir 생성 후 이동
         if not os.path.exists(mv_dir):
             os.makedirs(mv_dir)
 
         print(mv_dir)
-        cmd = subprocess.Popen('mv '+ self.root_path +'/buffer/*.bag ' + mv_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        #cmd = subprocess.Popen('mv '+ self.root_path +'/buffer/*.bag ' + mv_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        cmd = subprocess.Popen('mv ./buffer/*.bag ' + mv_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         cmd.wait()
-        cmd = subprocess.Popen('mv ' + self.root_path + '/buffer/*.yaml '+ mv_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        
+        #cmd = subprocess.Popen('mv ' + self.root_path + '/buffer/*.yaml '+ mv_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        cmd = subprocess.Popen('mv ./buffer/*.yaml '+ mv_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         cmd.wait()
 
         #time.sleep(1)
@@ -271,10 +285,10 @@ class MVC_Control:
         self.buffer_clear()
         #os.system('rm -rf ./buffer')
 
-    def space_update(self, text):
-        self.view.update_space('Free space : ' + text + 'GB')
+    def space_update(self, _text):
+        self.view.update_space('Free space : ' + _text + 'GB')
 
-        if int(text) - int(self.buffer_size) < 0:
+        if int(float(_text)) - int(float(self.buffer_size)) < 0:
             self.kill_all_Thread()    
             #안내 box 생성
             self.view.run_messageBox()
@@ -282,10 +296,12 @@ class MVC_Control:
 
     def write_yaml(self, save_path):
         if save_path == "TYPE_MANUAL":
-            root = self.root_path + '/manual'
+            #root = self.root_path + '/manual'
+            root = './manual'
             self.reverse=True
         if save_path == "TYPE_EVENT":
-            root = self.root_path + '/buffer'
+            #root = self.root_path + '/buffer'
+            root = './buffer'
             self.reverse=False
 
         is_not_file = True
@@ -315,13 +331,13 @@ class MVC_Control:
         #unicode to str
         STRING_DATA = dict([(str(k), str(v)) for k, v in dic_all.items()])
 
-        with open(yaml_name, 'wb') as f:
+        with open(yaml_name, 'w') as f:
             yaml.dump(STRING_DATA, f)
 
         name = self.model.ros_data['bag_name']
 
         #yaml저장 후 값 초기화
-        self.dic_meta['situation'] = ""           
+        self.dic_meta['situation'] = "None"           
         self.view.update_label(**self.dic_meta)
         self.model.ros_data['sec'] = 0
         self.model.ros_data['nsec'] = 0
@@ -342,8 +358,8 @@ class MVC_Control:
                     if self.t_event.is_alive():
                         print("event thread is alived")
                         return    
-                #5초 딜레이주고 quit함수 실행
-                self.t_event = Timer(5, self.quit, args=())
+                #3초 딜레이주고 quit함수 실행
+                self.t_event = Timer(3, self.quit, args=())
                 self.t_event.start()  
 
                 self.view.showDialog_btn_situation()
@@ -363,6 +379,7 @@ class MVC_Control:
         elif self.model.record_state == "STATE_MANUAL_ON":
             if self.model.record_type == "TYPE_MANUAL":             
                 self.Thread_make_rosbag.kill()
+                print(self.model.passengers)
                 rospy.logwarn("Mannual record end")
 
                 self.write_yaml(self.model.record_type)

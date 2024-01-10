@@ -1,7 +1,7 @@
-#-*- encoding: utf-8 -*-
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 
 from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QInputDialog, QLineEdit, QDialog, QGridLayout, QApplication, QMainWindow, QMessageBox, QGroupBox, QVBoxLayout
+from PyQt5.QtGui import QPixmap, QIcon
 import rospy
 
 class MyApp(QWidget):
@@ -9,20 +9,25 @@ class MyApp(QWidget):
         super(MyApp, self).__init__()        
         self.initUI()
 
-    def closeEvent(self, event):
+    def closeEvent(self, _event):
         self.control.kill_all_Thread()
-        event.accept()
+        _event.accept()
 
-    def set_control(self, control):
-        self.control = control
+    def set_control(self, _control):
+        self.control = _control
 
     def initUI(self):
-        self.setWindowTitle('Record tool')
-        self.setGeometry(300, 400, 300, 200)
+        self.setWindowTitle('KIAPI logging tool')
+        self.setWindowIcon(QIcon('./data/Icon.png'))
+        self.setGeometry(300, 500, 300, 200)
 
+        #kiapi_Icon = QPixmap('/home/kiapi/Documents/record_tool/src/record_tool/src/data/KIAPI.png')
+        #label = QLabel()
+        #label.setPixmap(kiapi_Icon.scaled(210,20)) # 이미지 세팅
         grid = QGridLayout()
         grid.addWidget(self.create_meta_group(), 0, 0)
         grid.addWidget(self.create_record_group(), 0, 1)
+        #grid.addWidget(label, 1, 0, 1, 2)
         self.setLayout(grid)
 
         self.show()     
@@ -60,10 +65,10 @@ class MyApp(QWidget):
 
     def create_record_group(self):
         #group box정의    
-        groupbox = QGroupBox('Record')
+        groupbox = QGroupBox('Logging')
 
         #btn 정의
-        btn_manual_record = QPushButton("manual record", self)
+        btn_manual_record = QPushButton("manual logging", self)
         btn_manual_record.clicked.connect(self.btn_manual_record_clicked)
 
         #btn_event_record = QPushButton("event record", self)
@@ -73,7 +78,7 @@ class MyApp(QWidget):
         #btn_upload.clicked.connect(self.btn_manual_record_clicked)
 
         #label 정의
-        self.label_record_state = QLabel('record_state', self)
+        self.label_record_state = QLabel('Logging_state', self)
         self.label_record_state.setFixedWidth(230)
         font_record_state = self.label_record_state.font()
         font_record_state.setPointSize(30)
@@ -83,15 +88,34 @@ class MyApp(QWidget):
         font_space = self.label_space.font()
         font_space.setPointSize(30)
 
+        kiapi_Icon = QPixmap('./data/KIAPI.png')
+        label = QLabel()
+        label.setPixmap(kiapi_Icon.scaled(210,20)) # 이미지 세팅
+
         layout = QGridLayout()
         layout.addWidget(btn_manual_record, 0, 0)
         #layout.addWidget(btn_event_record, 0, 1)
         #layout.addWidget(btn_upload, 1, 0)
         layout.addWidget(self.label_record_state, 1, 0)
         layout.addWidget(self.label_space, 2, 0)
+        layout.addWidget(label, 3, 0)
 
         groupbox.setLayout(layout)
         
+        return groupbox
+
+    def create_png(self):
+        groupbox = QGroupBox()
+        layout = QGridLayout() 
+
+        kiapi_Icon = QPixmap('./data/KIAPI.png')
+        label = QLabel(self)
+        label.setPixmap(kiapi_Icon.scaled(300,20)) # 이미지 세팅
+
+        layout = QGridLayout()
+        layout.addWidget(label,0,0)
+        groupbox.setLayout(layout)
+
         return groupbox
 
     def showDialog_btn_passengers(self):
@@ -120,8 +144,8 @@ class MyApp(QWidget):
             self.control.button_handler(text, "situation")     
 
     def btn_manual_record_clicked(self):
-        rospy.loginfo("Mannual test btn clicked, plz use mkz btn")
-        #self.control.button_handler("", "manual_record")
+        #rospy.loginfo("Mannual test btn clicked, plz use car's btn")
+        self.control.button_handler("", "manual_record")
 
     # def btn_event_record_clicked(self):
     #     print("dont use")
@@ -191,7 +215,6 @@ class set_all_meta_data(QDialog):
         self.setLayout(self.layout)
 
     def pushButtonClicked(self):
-
         self.passengers = self.lineEdit_passengers.text()
         self.purpose = self.lineEdit_purpose.text()
         self.area = self.lineEdit_area.text()
@@ -204,8 +227,3 @@ class set_all_meta_data(QDialog):
         self.label_error  = QLabel("plz enter all data", self)
         self.label_error.setStyleSheet("color: #FF0000") #RRGGBB
         self.layout.addWidget(self.label_error, 5, 1)
-
-
-        
-
-    

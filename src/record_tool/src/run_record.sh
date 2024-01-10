@@ -1,2 +1,2 @@
-python main.py /home/dgist/record_tool/src/record_tool/src
+python main.py /home/kiapi/record_tool/src/record_tool/src
 

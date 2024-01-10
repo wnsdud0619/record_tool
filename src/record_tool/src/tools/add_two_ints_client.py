@@ -1,5 +1,4 @@
 #-*- encoding: utf-8 -*-
-#!/usr/bin/env python2.7
 
 # Software License Agreement (BSD License)
 #
@@ -69,7 +68,7 @@ def usage():
 
 if __name__ == "__main__":
     rospy.init_node('test_node', anonymous=True)
-    save_path = "no_error"
+    save_path = "add"
 
     print("test req")
     print(save_path)
